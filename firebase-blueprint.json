@@ -1,0 +1,159 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user-specific settings and profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A top-level project containing tasks.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Active", "Completed", "On Hold"] },
+        "progress": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "status"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task within a project, containing milestones.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "dueDate": { "type": "string", "format": "date" },
+        "priority": { "type": "string", "enum": ["Low", "Medium", "High"] },
+        "status": { "type": "string", "enum": ["Not Started", "In Progress", "Completed"] },
+        "progress": { "type": "number" },
+        "order": { "type": "number" },
+        "totalTimeSpent": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "priority", "status", "order"]
+    },
+    "Milestone": {
+      "title": "Milestone",
+      "description": "A specific milestone within a task.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "taskId": { "type": "string" },
+        "name": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "completed", "order"]
+    },
+    "TimeLog": {
+      "title": "Time Log",
+      "description": "A log entry for time spent on a task.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "taskId": { "type": "string" },
+        "duration": { "type": "number" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" }
+      },
+      "required": ["duration", "startTime", "endTime"]
+    },
+    "Invitation": {
+      "title": "Invitation",
+      "description": "An internal invitation to join a team or project.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "position": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "senderId", "senderName", "status"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A conversation between two or more users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participants", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "A message within a conversation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "image", "file"] },
+        "fileUrl": { "type": "string" },
+        "fileName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/conversations/{convId}": {
+      "schema": "Conversation",
+      "description": "Direct message conversations"
+    },
+    "/conversations/{convId}/messages/{msgId}": {
+      "schema": "ChatMessage",
+      "description": "Messages within a conversation"
+    },
+    "/invites/{inviteId}": {
+      "schema": "Invitation",
+      "description": "Global invitations collection"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document"
+    },
+    "/users/{userId}/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Projects owned by the user"
+    },
+    "/users/{userId}/projects/{projectId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tasks within a project"
+    },
+    "/users/{userId}/projects/{projectId}/tasks/{taskId}/milestones/{milestoneId}": {
+      "schema": "Milestone",
+      "description": "Milestones within a task"
+    },
+    "/users/{userId}/projects/{projectId}/tasks/{taskId}/timeLogs/{logId}": {
+      "schema": "TimeLog",
+      "description": "Time logs for a task"
+    }
+  }
+}

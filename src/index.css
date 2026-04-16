@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  :root {
+    /* Light Mode - Pure, Clean, High Contrast */
+    --bg: #F8FAFC;
+    --sidebar-bg: #FFFFFF;
+    --card-bg: #FFFFFF;
+    --text-main: #0F172A;
+    --text-muted: #475569;
+    --border: #E2E8F0;
+    --accent: #4F46E5;
+    --accent-light: #EEF2FF;
+    
+    /* Button Colors - NO WHITE TEXT in light mode */
+    --btn-bg: #EEF2FF;
+    --btn-text: #4F46E5;
+    --btn-hover: #E0E7FF;
+    
+    /* Priorities & Status */
+    --p-low: #3B82F6;
+    --p-med: #F59E0B;
+    --p-high: #EF4444;
+    --c-done: #10B981;
+  }
+
+  .dark {
+    /* Dark Mode - Deep, Modern, Focused */
+    --bg: #020617;
+    --sidebar-bg: #0F172A;
+    --card-bg: #334155;
+    --text-main: #F8FAFC;
+    --text-muted: #CBD5E1;
+    --border: #475569;
+    --accent: #818CF8;
+    --accent-light: #312E81;
+
+    /* Button Colors - High contrast for dark mode */
+    --btn-bg: #818CF8;
+    --btn-text: #020617;
+    --btn-hover: #A5B4FC;
+  }
+
+  body {
+    @apply bg-[var(--bg)] text-[var(--text-main)] font-sans;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-[var(--card-bg)] border border-[var(--border)] rounded-xl shadow-sm;
+  }
+
+  .pill {
+    @apply px-2.5 py-1 rounded-md border border-[var(--border)] text-xs font-medium cursor-pointer bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors;
+  }
+
+  .pill-active {
+    @apply bg-[var(--text-main)] text-[var(--bg)] border-[var(--text-main)];
+  }
+
+  .task-row {
+    @apply p-4 border-b border-[var(--border)] grid grid-cols-[24px_1fr_100px_100px] items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors;
+  }
+
+  .priority-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .target-logo-geo {
+    @apply w-8 h-8 border-[3px] border-[var(--accent)] rounded-full flex items-center justify-center relative;
+  }
+
+  .target-logo-geo::after {
+    content: '';
+    @apply w-2 h-2 bg-[var(--accent)] rounded-full;
+  }
+}
