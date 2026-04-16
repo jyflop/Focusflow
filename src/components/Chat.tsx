@@ -21,6 +21,7 @@ import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { format } from 'date-fns';
 import { io, Socket } from 'socket.io-client';
 import { cn } from '../lib/utils';
+import { safelyFormatDate } from '../lib/dateUtils';
 
 export default function Chat() {
   const [conversations, setConversations] = useState<any[]>([]);
@@ -202,12 +203,12 @@ export default function Chat() {
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-semibold truncate">{otherUser.displayName}</h4>
-                      <span className="text-[10px] opacity-70">
-                        {conv.updatedAt?.toDate ? format(conv.updatedAt.toDate(), 'HH:mm') : ''}
-                      </span>
-                    </div>
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-semibold truncate">{otherUser.displayName}</h4>
+                        <span className="text-[10px] opacity-70">
+                          {safelyFormatDate(conv.updatedAt, 'HH:mm', '')}
+                        </span>
+                      </div>
                     <p className={cn("text-xs truncate opacity-70 mt-0.5", activeConv?.id === conv.id ? "text-white" : "text-[var(--text-muted)]")}>
                       {conv.lastMessage || "No messages yet"}
                     </p>
@@ -311,13 +312,13 @@ export default function Chat() {
                             <span className="text-xs truncate max-w-[150px]">{msg.fileName}</span>
                           </a>
                         )}
-                        <div className={cn(
-                          "flex items-center gap-1.5 mt-1 opacity-70 text-[9px]",
-                          isMine ? "justify-end" : "justify-start"
-                        )}>
-                          {msg.createdAt?.toDate ? format(msg.createdAt.toDate(), 'HH:mm') : ''}
-                          {isMine && <CheckCheck className="w-3 h-3" />}
-                        </div>
+                          <div className={cn(
+                            "flex items-center gap-1.5 mt-1 opacity-70 text-[9px]",
+                            isMine ? "justify-end" : "justify-start"
+                          )}>
+                            {safelyFormatDate(msg.createdAt, 'HH:mm', '')}
+                            {isMine && <CheckCheck className="w-3 h-3" />}
+                          </div>
                       </div>
                     </div>
                   </div>

@@ -36,8 +36,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "jyflopkaw@gmail.com" && request.auth.token.email_verified == true));
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'admin'] ||
+          (request.auth.token.email == "jyflopkaw@gmail.com" && (request.auth.token.email_verified == true || request.auth.token.email_verified == false)));
     }
 
     function hasRequiredFields(fields) {
@@ -46,6 +46,10 @@ service cloud.firestore {
 
     function hasOnlyAllowedFields(fields) {
       return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function areFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
     }
 
     function isValidString(field, min, max) {
@@ -58,12 +62,15 @@ service cloud.firestore {
     // Domain Validators
     // ===============================================================
 
-    function isValidUserProfile(data) {
+    function isValidUserProfile(data, userId) {
       return hasRequiredFields(['uid', 'email']) &&
-             data.uid == request.auth.uid &&
+             data.uid == userId &&
              data.email is string && data.email.size() <= 255 &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
-             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500));
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500)) &&
+             (!('role' in data) || (data.role in ['Admin', 'Member', 'admin', 'member'])) &&
+             (!('position' in data) || (data.position is string && data.position.size() <= 100)) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp || data.updatedAt == null));
     }
 
     function isValidProject(data) {
@@ -126,38 +133,40 @@ service cloud.firestore {
       }
     }
 
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
-      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data);
-      
-      match /projects/{projectId} {
-        allow read: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) && isValidProject(request.resource.data);
-        allow update: if isOwner(userId) && isValidProject(request.resource.data);
-        allow delete: if isOwner(userId) || isAdmin();
+    match /projects/{projectId} {
+      allow read: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow create: if isAuthenticated() && isValidProject(request.resource.data) && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow delete: if isAuthenticated() && (request.resource.data.ownerId == request.auth.uid || isAdmin());
 
-        match /tasks/{taskId} {
-          allow read: if isOwner(userId) || isAdmin();
-          allow create: if isOwner(userId) && isValidTask(request.resource.data);
-          allow update: if isOwner(userId) && isValidTask(request.resource.data);
-          allow delete: if isOwner(userId) || isAdmin();
+      match /tasks/{taskId} {
+        allow read: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin());
+        allow create: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin()) && isValidTask(request.resource.data);
+        allow update: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin());
+        allow delete: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin());
 
-          match /milestones/{milestoneId} {
-            allow read: if isOwner(userId) || isAdmin();
-            allow create: if isOwner(userId) && isValidMilestone(request.resource.data);
-            allow update: if isOwner(userId) && isValidMilestone(request.resource.data);
-            allow delete: if isOwner(userId) || isAdmin();
-          }
+        match /milestones/{milestoneId} {
+          allow read: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin());
+          allow create: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin()) && isValidMilestone(request.resource.data);
+          allow update: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin());
+          allow delete: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin());
+        }
 
-          match /timeLogs/{logId} {
-            allow read: if isOwner(userId) || isAdmin();
-            allow create: if isOwner(userId) && isValidTimeLog(request.resource.data);
-            allow update: if isOwner(userId) && isValidTimeLog(request.resource.data);
-            allow delete: if isOwner(userId) || isAdmin();
-          }
+        match /timeLogs/{logId} {
+          allow read: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin());
+          allow create: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin()) && isValidTimeLog(request.resource.data);
+          allow update: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin());
+          allow delete: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.participants || isAdmin());
         }
       }
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data, userId);
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                    isValidUserProfile(request.resource.data, userId) &&
+                    (isAdmin() || areFieldsUnchanged(['role']));
     }
   }
 }

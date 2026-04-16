@@ -16,6 +16,7 @@ import {
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { safelyFormatDate } from '../lib/dateUtils';
 
 interface ProjectListProps {
   onSelectProject: (id: string) => void;
@@ -253,7 +254,7 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)]">
                       <Calendar className="w-3.5 h-3.5" />
-                      {project.endDate ? format(new Date(project.endDate), 'MMM d, yyyy') : 'No deadline'}
+                      {safelyFormatDate(project.endDate, 'MMM d, yyyy', 'No deadline')}
                     </div>
                     {project.assigneeId && (
                       <div className="flex items-center gap-2 border-l border-[var(--border)] pl-4">

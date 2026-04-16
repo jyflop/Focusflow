@@ -14,6 +14,8 @@ import {
 import { BarChart3, ChevronLeft, ChevronRight, Briefcase } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import { safelyFormatDate, parseDate } from '../lib/dateUtils';
+import { isValid } from 'date-fns';
 
 interface GanttChartProps {
   onSelectProject: (id: string) => void;
@@ -30,7 +32,7 @@ export default function GanttChart({ onSelectProject }: GanttChartProps) {
     if (!auth.currentUser) return;
 
     const unsubscribe = projectService.getProjects(auth.currentUser.uid, (data) => {
-      setProjects(data.filter(p => p.startDate && p.endDate));
+      setProjects(data); // Don't filter here, we want them in state
       setLoading(false);
     });
 
@@ -60,17 +62,25 @@ export default function GanttChart({ onSelectProject }: GanttChartProps) {
   });
 
   const getProjectPosition = (project: Project) => {
-    const start = startOfDay(new Date(project.startDate));
-    const end = startOfDay(new Date(project.endDate));
+    const start = parseDate(project.startDate);
+    const end = parseDate(project.endDate);
     const timelineStart = startOfDay(viewDate);
     
-    const offset = differenceInDays(start, timelineStart);
-    const duration = differenceInDays(end, start) + 1;
+    if (!start || !end) {
+      return { offset: 0, duration: 0 };
+    }
+
+    const offset = differenceInDays(startOfDay(start), timelineStart);
+    const duration = differenceInDays(startOfDay(end), startOfDay(start)) + 1;
     
     return { offset, duration };
   };
 
-  const filteredProjects = projects.filter(p => selectedProjectId === 'All' || p.id === selectedProjectId);
+  const filteredProjects = projects.filter(p => {
+    const matchesId = selectedProjectId === 'All' || p.id === selectedProjectId;
+    const hasDates = p.startDate && p.endDate;
+    return matchesId && hasDates;
+  });
 
   return (
     <div className="p-8 lg:p-10 space-y-8">
@@ -157,7 +167,7 @@ export default function GanttChart({ onSelectProject }: GanttChartProps) {
                     (day.getDay() === 0 || day.getDay() === 6) && "bg-[var(--bg)]/50 opacity-40"
                   )}
                 >
-                  <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase">{format(day, 'MMM d')}</p>
+                  <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase">{safelyFormatDate(day, 'MMM d')}</p>
                 </div>
               ))}
             </div>

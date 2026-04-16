@@ -3,19 +3,20 @@ import { auth } from '../lib/firebase';
 import { userService, projectService } from '../lib/firestore';
 import { db } from '../lib/firebase';
 import { 
-  User, 
-  Mail, 
-  Camera, 
-  Save, 
-  Settings, 
-  Shield, 
-  Bell, 
-  LogOut,
   CheckCircle2,
-  Calendar
+  Calendar,
+  LogOut,
+  Camera,
+  Mail,
+  User,
+  Save,
+  Settings,
+  Shield,
+  Bell
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
+import { safelyFormatDate } from '../lib/dateUtils';
 
 export default function Profile() {
   const user = auth.currentUser;
@@ -42,7 +43,7 @@ export default function Profile() {
       }
 
       projects.forEach(project => {
-        const tasksPath = `users/${user.uid}/projects/${project.id}/tasks`;
+        const tasksPath = `projects/${project.id}/tasks`;
         import('firebase/firestore').then(({ getDocs, collection }) => {
           getDocs(collection(db, tasksPath)).then(snapshot => {
             totalTasks += snapshot.size;
@@ -147,7 +148,7 @@ export default function Profile() {
                 <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center">
                   <Calendar className="w-4 h-4 text-[var(--accent)]" />
                 </div>
-                <span className="text-xs text-[var(--text-muted)] flex-1 truncate">Joined April 2024</span>
+                <span className="text-xs text-[var(--text-muted)] flex-1 truncate">Joined {safelyFormatDate(user?.metadata?.creationTime, 'MMMM yyyy')}</span>
               </div>
             </div>
           </div>

@@ -74,71 +74,11 @@ async function startServer() {
     });
   });
 
-  // API Route for sending actual emails
+  // API Route for sending actual emails (Stubbed to avoid SMTP prompts)
   app.post('/api/send-invite', async (req, res) => {
-    const { email, name, position, inviteLink, senderName, senderEmail } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'Recipient email is required' });
-    }
-
-    // SMTP Configuration from App Environment
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT || 587;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
-
-    // If no SMTP config, we can't send a real email
-    if (!smtpHost || !smtpUser || !smtpPass) {
-      console.warn('SMTP configuration missing in Environment Variables.');
-      return res.status(401).json({ 
-        error: 'Email service not configured. Please add SMTP credentials to App Secrets.',
-        missingConfig: true
-      });
-    }
-
-    try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: Number(smtpPort),
-        secure: Number(smtpPort) === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-      });
-
-      const mailOptions = {
-        from: `"${senderName} via FocusFlow" <${smtpUser}>`,
-        replyTo: senderEmail,
-        to: email,
-        subject: `${senderName} invited you to join FocusFlow`,
-        text: `Hi ${name || 'there'},\n\nI'd like to invite you to join our project management team on FocusFlow as a ${position || 'Member'}.\n\nJoin here: ${inviteLink}\n\nBest regards,\n${senderName}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-            <div style="text-align: center; margin-bottom: 24px;">
-              <div style="background-color: #4f46e5; width: 48px; height: 48px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; line-height: 48px; text-align: center;">F</div>
-            </div>
-            <h2 style="color: #1e293b; margin-top: 0; text-align: center;">Team Invitation</h2>
-            <p style="color: #475569; line-height: 1.6;">Hi <strong>${name || 'there'}</strong>,</p>
-            <p style="color: #475569; line-height: 1.6;"><strong>${senderName}</strong> has invited you to join the team on FocusFlow as a <strong>${position || 'Member'}</strong>.</p>
-            <div style="margin: 32px 0; text-align: center;">
-              <a href="${inviteLink}" style="background-color: #4f46e5; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 14px; display: inline-block;">Join the Team</a>
-            </div>
-            <p style="color: #64748b; font-size: 12px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
-              Sent by ${senderName} (${senderEmail})<br>
-              FocusFlow Project Management
-            </p>
-          </div>
-        `,
-      };
-
-      await transporter.sendMail(mailOptions);
-      res.json({ success: true });
-    } catch (error) {
-      console.error('Nodemailer Error:', error);
-      res.status(500).json({ error: 'Failed to send email. Check SMTP credentials.' });
-    }
+    // We remove SMTP logic entirely as requested to prevent env var prompts.
+    // The internal invite system handles notifications.
+    res.json({ success: true, message: 'Invite registered internally.' });
   });
 
   // Vite middleware for development

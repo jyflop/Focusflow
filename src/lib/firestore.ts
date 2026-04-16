@@ -108,16 +108,25 @@ export const userService = {
 
 export const projectService = {
   getProjects: (userId: string, callback: (projects: any[]) => void) => {
-    const path = `users/${userId}/projects`;
-    const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+    const path = 'projects';
+    const q = query(
+      collection(db, path), 
+      where('participants', 'array-contains', userId)
+    );
     return onSnapshot(q, (snapshot) => {
       const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sort client-side to handle missing createdAt and avoid index issues
+      projects.sort((a: any, b: any) => {
+        const dateA = a.createdAt?.toDate?.() || (a.createdAt ? new Date(a.createdAt) : new Date(0));
+        const dateB = b.createdAt?.toDate?.() || (b.createdAt ? new Date(b.createdAt) : new Date(0));
+        return dateB.getTime() - dateA.getTime();
+      });
       callback(projects);
     }, (error) => handleFirestoreError(error, OperationType.LIST, path));
   },
 
   getProject: (userId: string, projectId: string, callback: (project: any) => void) => {
-    const path = `users/${userId}/projects/${projectId}`;
+    const path = `projects/${projectId}`;
     return onSnapshot(doc(db, path), (snapshot) => {
       if (snapshot.exists()) {
         callback({ id: snapshot.id, ...snapshot.data() });
@@ -126,11 +135,12 @@ export const projectService = {
   },
 
   createProject: async (userId: string, projectData: any) => {
-    const path = `users/${userId}/projects`;
+    const path = 'projects';
     try {
       const docRef = await addDoc(collection(db, path), {
         ...projectData,
         ownerId: userId,
+        participants: [userId],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -141,19 +151,29 @@ export const projectService = {
   },
 
   updateProject: async (userId: string, projectId: string, projectData: any) => {
-    const path = `users/${userId}/projects/${projectId}`;
+    const path = `projects/${projectId}`;
     try {
-      await updateDoc(doc(db, path), {
-        ...projectData,
-        updatedAt: serverTimestamp(),
-      });
+      const updates = { ...projectData, updatedAt: serverTimestamp() };
+      
+      // If assigning to a new user, add them to participants
+      if (projectData.assigneeId) {
+        const docSnap = await getDoc(doc(db, path));
+        if (docSnap.exists()) {
+          const currentParticipants = docSnap.data().participants || [];
+          if (!currentParticipants.includes(projectData.assigneeId)) {
+            updates.participants = [...currentParticipants, projectData.assigneeId];
+          }
+        }
+      }
+
+      await updateDoc(doc(db, path), updates);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
   },
 
   deleteProject: async (userId: string, projectId: string) => {
-    const path = `users/${userId}/projects/${projectId}`;
+    const path = `projects/${projectId}`;
     try {
       await deleteDoc(doc(db, path));
     } catch (error) {
@@ -164,7 +184,7 @@ export const projectService = {
 
 export const taskService = {
   getTasks: (userId: string, projectId: string, callback: (tasks: any[]) => void) => {
-    const path = `users/${userId}/projects/${projectId}/tasks`;
+    const path = `projects/${projectId}/tasks`;
     const q = query(collection(db, path), orderBy('order', 'asc'));
     return onSnapshot(q, (snapshot) => {
       const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -173,7 +193,7 @@ export const taskService = {
   },
 
   getTask: (userId: string, projectId: string, taskId: string, callback: (task: any) => void) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}`;
+    const path = `projects/${projectId}/tasks/${taskId}`;
     return onSnapshot(doc(db, path), (snapshot) => {
       if (snapshot.exists()) {
         callback({ id: snapshot.id, ...snapshot.data() });
@@ -182,7 +202,7 @@ export const taskService = {
   },
 
   createTask: async (userId: string, projectId: string, taskData: any) => {
-    const path = `users/${userId}/projects/${projectId}/tasks`;
+    const path = `projects/${projectId}/tasks`;
     try {
       const docRef = await addDoc(collection(db, path), {
         ...taskData,
@@ -190,6 +210,21 @@ export const taskService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // If task has an assignee, make sure they are a participant in the project
+      if (taskData.assigneeId) {
+        const projectRef = doc(db, 'projects', projectId);
+        const projectSnap = await getDoc(projectRef);
+        if (projectSnap.exists()) {
+          const participants = projectSnap.data().participants || [];
+          if (!participants.includes(taskData.assigneeId)) {
+            await updateDoc(projectRef, {
+              participants: [...participants, taskData.assigneeId]
+            });
+          }
+        }
+      }
+
       return docRef.id;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
@@ -197,19 +232,33 @@ export const taskService = {
   },
 
   updateTask: async (userId: string, projectId: string, taskId: string, taskData: any) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}`;
+    const path = `projects/${projectId}/tasks/${taskId}`;
     try {
       await updateDoc(doc(db, path), {
         ...taskData,
         updatedAt: serverTimestamp(),
       });
+
+      // If task assignee changed, add to project participants
+      if (taskData.assigneeId) {
+        const projectRef = doc(db, 'projects', projectId);
+        const projectSnap = await getDoc(projectRef);
+        if (projectSnap.exists()) {
+          const participants = projectSnap.data().participants || [];
+          if (!participants.includes(taskData.assigneeId)) {
+            await updateDoc(projectRef, {
+              participants: [...participants, taskData.assigneeId]
+            });
+          }
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
   },
 
   deleteTask: async (userId: string, projectId: string, taskId: string) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}`;
+    const path = `projects/${projectId}/tasks/${taskId}`;
     try {
       await deleteDoc(doc(db, path));
     } catch (error) {
@@ -220,7 +269,7 @@ export const taskService = {
 
 export const milestoneService = {
   getMilestones: (userId: string, projectId: string, taskId: string, callback: (milestones: any[]) => void) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}/milestones`;
+    const path = `projects/${projectId}/tasks/${taskId}/milestones`;
     const q = query(collection(db, path), orderBy('order', 'asc'));
     return onSnapshot(q, (snapshot) => {
       const milestones = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -229,7 +278,7 @@ export const milestoneService = {
   },
 
   createMilestone: async (userId: string, projectId: string, taskId: string, milestoneData: any) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}/milestones`;
+    const path = `projects/${projectId}/tasks/${taskId}/milestones`;
     try {
       const docRef = await addDoc(collection(db, path), {
         ...milestoneData,
@@ -243,7 +292,7 @@ export const milestoneService = {
   },
 
   updateMilestone: async (userId: string, projectId: string, taskId: string, milestoneId: string, milestoneData: any) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}/milestones/${milestoneId}`;
+    const path = `projects/${projectId}/tasks/${taskId}/milestones/${milestoneId}`;
     try {
       await updateDoc(doc(db, path), milestoneData);
     } catch (error) {
@@ -252,7 +301,7 @@ export const milestoneService = {
   },
 
   deleteMilestone: async (userId: string, projectId: string, taskId: string, milestoneId: string) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}/milestones/${milestoneId}`;
+    const path = `projects/${projectId}/tasks/${taskId}/milestones/${milestoneId}`;
     try {
       await deleteDoc(doc(db, path));
     } catch (error) {
@@ -263,7 +312,7 @@ export const milestoneService = {
 
 export const timeLogService = {
   getTimeLogs: (userId: string, projectId: string, taskId: string, callback: (logs: any[]) => void) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}/timeLogs`;
+    const path = `projects/${projectId}/tasks/${taskId}/timeLogs`;
     const q = query(collection(db, path), orderBy('startTime', 'desc'));
     return onSnapshot(q, (snapshot) => {
       const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -272,7 +321,7 @@ export const timeLogService = {
   },
 
   createTimeLog: async (userId: string, projectId: string, taskId: string, logData: any) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}/timeLogs`;
+    const path = `projects/${projectId}/tasks/${taskId}/timeLogs`;
     try {
       const docRef = await addDoc(collection(db, path), {
         ...logData,
@@ -286,7 +335,7 @@ export const timeLogService = {
   },
 
   deleteTimeLog: async (userId: string, projectId: string, taskId: string, logId: string) => {
-    const path = `users/${userId}/projects/${projectId}/tasks/${taskId}/timeLogs/${logId}`;
+    const path = `projects/${projectId}/tasks/${taskId}/timeLogs/${logId}`;
     try {
       await deleteDoc(doc(db, path));
     } catch (error) {

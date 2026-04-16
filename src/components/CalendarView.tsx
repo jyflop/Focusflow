@@ -25,6 +25,8 @@ import {
 import { ChevronLeft, ChevronRight, Briefcase, Calendar as CalendarIcon, X, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { safelyFormatDate, parseDate } from '../lib/dateUtils';
+import { isValid } from 'date-fns';
 
 interface CalendarViewProps {
   onSelectProject: (id: string) => void;
@@ -36,6 +38,7 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'week' | 'month' | 'year'>('month');
   const [selectedProjectTasks, setSelectedProjectTasks] = useState<{ project: Project; tasks: Task[] } | null>(null);
+  const [selectedDayProjects, setSelectedDayProjects] = useState<{ day: Date; projects: Project[] } | null>(null);
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -48,12 +51,20 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
     return () => unsubscribe();
   }, []);
 
-  const handleProjectClick = async (project: Project, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDayClick = (day: Date) => {
+    const dayProjects = getProjectsForDay(day);
+    if (dayProjects.length > 0) {
+      setSelectedDayProjects({ day, projects: dayProjects });
+    }
+  };
+
+  const handleProjectClick = async (project: Project, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!auth.currentUser) return;
 
     // Show immediate loading or just clear previous
     setSelectedProjectTasks({ project, tasks: [] });
+    setSelectedDayProjects(null); // Close the day view if it was open
 
     taskService.getTasks(auth.currentUser.uid, project.id, (tasks) => {
       setSelectedProjectTasks({ project, tasks });
@@ -74,9 +85,9 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
 
   const getProjectsForDay = (day: Date) => {
     return projects.filter(p => {
-      if (!p.startDate || !p.endDate) return false;
-      const start = new Date(p.startDate);
-      const end = new Date(p.endDate);
+      const start = parseDate(p.startDate);
+      const end = parseDate(p.endDate);
+      if (!start || !end) return false;
       return isSameDay(day, start) || isSameDay(day, end) || (day >= start && day <= end);
     });
   };
@@ -105,8 +116,9 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
             return (
               <div 
                 key={day.toString()} 
+                onClick={() => handleDayClick(day)}
                 className={cn(
-                  "min-h-[120px] p-2 transition-colors",
+                  "min-h-[120px] p-2 transition-colors cursor-pointer hover:bg-[var(--bg)]/80",
                   !isCurrentMonth && "bg-[var(--bg)] opacity-30",
                   isToday(day) && "bg-[var(--accent)]/5"
                 )}
@@ -116,11 +128,11 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
                     "text-xs font-bold",
                     isToday(day) ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
                   )}>
-                    {format(day, 'd')}
+                    {safelyFormatDate(day, 'd')}
                   </span>
                 </div>
                 <div className="space-y-1">
-                  {dayProjects.map(project => (
+                  {dayProjects.slice(0, 3).map(project => (
                     <button
                       key={project.id}
                       onClick={(e) => handleProjectClick(project, e)}
@@ -134,6 +146,11 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
                       {project.name}
                     </button>
                   ))}
+                  {dayProjects.length > 3 && (
+                    <div className="text-[8px] font-bold text-[var(--accent)] px-1 mt-1">
+                      + {dayProjects.length - 3} more
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -153,11 +170,11 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
         <div className="grid grid-cols-7 border-b border-[var(--border)] bg-[var(--bg)] opacity-50">
           {calendarDays.map(day => (
             <div key={day.toString()} className="py-4 text-center space-y-1">
-              <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">{format(day, 'EEE')}</p>
+              <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">{safelyFormatDate(day, 'EEE')}</p>
               <p className={cn(
                 "text-lg font-bold",
                 isToday(day) ? "text-[var(--accent)]" : "text-[var(--text-main)]"
-              )}>{format(day, 'd')}</p>
+              )}>{safelyFormatDate(day, 'd')}</p>
             </div>
           ))}
         </div>
@@ -167,8 +184,9 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
             return (
               <div 
                 key={day.toString()} 
+                onClick={() => handleDayClick(day)}
                 className={cn(
-                  "p-4 space-y-2",
+                  "p-4 space-y-2 cursor-pointer hover:bg-[var(--bg)]/80 transition-all",
                   isToday(day) && "bg-[var(--accent)]/5"
                 )}
               >
@@ -211,7 +229,7 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
 
           return (
             <div key={month.toString()} className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--border)] shadow-sm">
-              <h3 className="text-sm font-bold text-[var(--text-main)] mb-4 px-1">{format(month, 'MMMM')}</h3>
+              <h3 className="text-sm font-bold text-[var(--text-main)] mb-4 px-1">{safelyFormatDate(month, 'MMMM')}</h3>
               <div className="grid grid-cols-7 gap-1">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
                   <div key={i} className="text-[8px] font-bold text-[var(--text-muted)] text-center py-1">{d}</div>
@@ -224,7 +242,7 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
                   return (
                     <button 
                       key={day.toString()}
-                      onClick={(e) => hasProjects ? handleProjectClick(dayProjects[0], e) : null}
+                      onClick={() => handleDayClick(day)}
                       className={cn(
                         "aspect-square flex items-center justify-center text-[9px] rounded-md transition-all",
                         !isCurrentMonth && "opacity-0 pointer-events-none",
@@ -232,7 +250,7 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
                         hasProjects && !isToday(day) && "bg-[var(--accent)]/10 text-[var(--accent)] font-bold cursor-pointer hover:bg-[var(--accent)]/20 shadow-sm"
                       )}
                     >
-                      {format(day, 'd')}
+                      {safelyFormatDate(day, 'd')}
                     </button>
                   );
                 })}
@@ -249,7 +267,7 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold text-[var(--text-main)]">
-            {view === 'year' ? format(currentDate, 'yyyy') : format(currentDate, 'MMMM yyyy')}
+            {view === 'year' ? safelyFormatDate(currentDate, 'yyyy') : safelyFormatDate(currentDate, 'MMMM yyyy')}
           </h2>
           <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Project Schedule</p>
         </div>
@@ -308,6 +326,57 @@ export default function CalendarView({ onSelectProject }: CalendarViewProps) {
           {view === 'month' && renderMonthView()}
           {view === 'year' && renderYearView()}
         </motion.div>
+      </AnimatePresence>
+
+      {/* Day Details Popup */}
+      <AnimatePresence>
+        {selectedDayProjects && (
+          <div className="fixed inset-0 flex items-center justify-center z-[70] p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedDayProjects(null)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[var(--card-bg)] border border-[var(--border)] w-full max-w-sm rounded-2xl shadow-2xl relative z-10 overflow-hidden"
+            >
+              <div className="p-5 border-b border-[var(--border)] flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--text-main)]">{safelyFormatDate(selectedDayProjects.day, 'MMMM d, yyyy')}</h3>
+                  <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mt-0.5">Projects on this day</p>
+                </div>
+                <button onClick={() => setSelectedDayProjects(null)} className="p-2 hover:bg-[var(--bg)] rounded-lg transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-5 space-y-2">
+                {selectedDayProjects.projects.map(project => (
+                  <button
+                    key={project.id}
+                    onClick={() => handleProjectClick(project)}
+                    className="w-full flex items-center justify-between p-4 rounded-xl border border-[var(--border)] group hover:border-[var(--accent)] transition-all bg-[var(--bg)]/40 hover:bg-[var(--bg)]/80"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center">
+                        <Briefcase className="w-4 h-4 text-[var(--accent)]" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-[var(--text-main)] group-hover:text-[var(--accent)] transition-colors">{project.name}</p>
+                        <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mt-0.5">{project.status}</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-all translate-x-0 group-hover:translate-x-1" />
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
       {/* Task List Popup */}

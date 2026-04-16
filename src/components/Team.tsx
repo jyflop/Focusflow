@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
+import { safelyFormatDate } from '../lib/dateUtils';
 
 export default function Team() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -274,7 +275,7 @@ export default function Team() {
                   <td className="p-5">
                     <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
                       <Calendar className="w-3.5 h-3.5" />
-                      {user.createdAt ? format(new Date(user.createdAt), 'MMM d, yyyy') : 'No date'}
+                      {safelyFormatDate(user.createdAt, 'MMM d, yyyy', 'No date')}
                     </div>
                   </td>
                   <td className="p-5 text-right">
