@@ -64,9 +64,16 @@ export default function Team() {
     setDeletingUserId(uid);
     try {
       await userService.deleteUser(uid);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to remove member:', error);
-      alert('Failed to remove member. Please try again.');
+      let message = 'Failed to remove member. Please try again.';
+      try {
+        const errInfo = JSON.parse(error.message);
+        message = `Error: ${errInfo.error} (Path: ${errInfo.path})`;
+      } catch (e) {
+        message = `Error: ${error.message || 'Unknown error'}`;
+      }
+      alert(message);
     } finally {
       setDeletingUserId(null);
     }
