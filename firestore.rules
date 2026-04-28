@@ -200,6 +200,23 @@ service cloud.firestore {
       allow update: if (isOwner(userId) || isAdmin()) && 
                     isValidUserProfile(request.resource.data, userId) &&
                     (isAdmin() || areFieldsUnchanged(['role']));
+      allow delete: if isAdmin();
+
+      match /projects/{projectId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+
+        match /tasks/{taskId} {
+          allow read, write: if isOwner(userId) || isAdmin();
+
+          match /milestones/{milestoneId} {
+            allow read, write: if isOwner(userId) || isAdmin();
+          }
+
+          match /timeLogs/{logId} {
+            allow read, write: if isOwner(userId) || isAdmin();
+          }
+        }
+      }
     }
   }
 }

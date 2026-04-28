@@ -13,7 +13,8 @@ import {
   UserPlus,
   X,
   Link2,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -36,6 +37,8 @@ export default function Team() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendSuccess, setSendSuccess] = useState(false);
 
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
   const inviteLink = window.location.origin;
 
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
@@ -53,6 +56,20 @@ export default function Team() {
     navigator.clipboard.writeText(inviteLink);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleRemoveMember = async (uid: string) => {
+    if (!window.confirm('Are you sure you want to remove this team member? This action cannot be undone.')) return;
+    
+    setDeletingUserId(uid);
+    try {
+      await userService.deleteUser(uid);
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+      alert('Failed to remove member. Please try again.');
+    } finally {
+      setDeletingUserId(null);
+    }
   };
 
   const handleSendInvite = async (e: React.FormEvent) => {
@@ -87,9 +104,17 @@ export default function Team() {
         }),
       });
 
-      const emailData = await emailResponse.json();
+      // Safely handle response to avoid JSON parse error on static hosting (Firebase)
+      let emailData: any = {};
+      const contentType = emailResponse.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        emailData = await emailResponse.json();
+      } else {
+        // If not JSON, it's likely the static server returning index.html (non-critical)
+        console.warn('Real email server not available (static hosting).');
+      }
       
-      if (!emailResponse.ok) {
+      if (!emailResponse.ok && contentType && contentType.includes('application/json')) {
         // Even if real email fails due to missing config, we consider it a success 
         // because the user will still see the notification inside the app dashboard.
         console.warn('Real email failed:', emailData.error);
@@ -296,10 +321,41 @@ export default function Team() {
                     </div>
                   </td>
                   <td className="p-5 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                      <button className="p-2 hover:bg-[var(--bg)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
+                    <div className="flex items-center justify-end gap-2">
+                      {isAdminGlobal && user.uid !== auth.currentUser?.uid && (
+                        <button 
+                          onClick={() => handleRemoveMember(user.uid)}
+                          disabled={deletingUserId === user.uid}
+                          className="p-2 hover:bg-red-500/10 rounded-lg text-red-500 transition-all disabled:opacity-50"
+                          title="Remove Member"
+                        >
+                          {deletingUserId === user.uid ? (
+                            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
+                      <div className="relative group/menu">
+                        <button className="p-2 hover:bg-[var(--bg)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all">
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-xl shadow-xl py-2 z-10 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all">
+                          {isAdminGlobal && user.uid !== auth.currentUser?.uid && (
+                            <button 
+                              onClick={() => handleRemoveMember(user.uid)}
+                              className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Remove Member
+                            </button>
+                          )}
+                          <button className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-[var(--text-main)] hover:bg-[var(--bg)] transition-colors">
+                            <Mail className="w-3.5 h-3.5" />
+                            Send Message
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </td>
                 </motion.tr>

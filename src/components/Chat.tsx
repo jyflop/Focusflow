@@ -41,25 +41,30 @@ export default function Chat() {
   useEffect(() => {
     if (!user) return;
 
-    // Initialize Socket.io
-    socketRef.current = io(window.location.origin, {
-      transports: ['polling', 'websocket'], // Ensure compatibility with proxy
-      reconnectionAttempts: 5,
-      timeout: 10000
-    });
+    // Initialize Socket.io only if on localhost or explicitly configured
+    // Firebase Hosting doesn't support Socket.io (Node server), which causes JSON parse errors when it returns index.html
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    if (isLocal) {
+      socketRef.current = io(window.location.origin, {
+        transports: ['polling', 'websocket'],
+        reconnectionAttempts: 5,
+        timeout: 10000
+      });
 
-    socketRef.current.on('connect_error', (err) => {
-      console.warn('Chat connection info (non-critical):', err.message);
-    });
+      socketRef.current.on('connect_error', (err) => {
+        console.warn('Chat connection info (non-critical):', err.message);
+      });
 
-    socketRef.current.emit('join', user.uid);
+      socketRef.current.emit('join', user.uid);
 
-    socketRef.current.on('typing', ({ conversationId, userId }) => {
-      if (activeConv?.id === conversationId) {
-        setTyping(userId);
-        setTimeout(() => setTyping(null), 3000);
-      }
-    });
+      socketRef.current.on('typing', ({ conversationId, userId }) => {
+        if (activeConv?.id === conversationId) {
+          setTyping(userId);
+          setTimeout(() => setTyping(null), 3000);
+        }
+      });
+    }
 
     // Fetch conversations
     const unsubConvs = chatService.getConversations(user.uid, (data) => {
@@ -121,7 +126,17 @@ export default function Chat() {
         method: 'POST',
         body: formData
       });
-      const data = await res.json();
+      
+      // Safely handle response to avoid JSON parse error on static hosting (Firebase)
+      let data: any = {};
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        // If not JSON, it's likely the static server returning index.html (non-critical)
+        console.warn('Upload server not available (static hosting).');
+        return;
+      }
 
       if (res.ok) {
         await chatService.sendMessage(activeConv.id, {

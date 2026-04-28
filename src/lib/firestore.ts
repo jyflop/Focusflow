@@ -75,8 +75,8 @@ export const userService = {
       await setDoc(doc(db, path), {
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
+        displayName: user.displayName || user.email.split('@')[0], // Fallback to email prefix
+        photoURL: user.photoURL || '',
         updatedAt: serverTimestamp(),
       }, { merge: true });
     } catch (error) {
@@ -98,11 +98,23 @@ export const userService = {
 
   getUsers: (callback: (users: any[]) => void) => {
     const path = 'users';
-    const q = query(collection(db, path), orderBy('displayName', 'asc'));
+    // Removed orderBy('displayName') as it excludes users with missing displayName field
+    const q = query(collection(db, path));
     return onSnapshot(q, (snapshot) => {
-      const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      // Sort client-side instead to ensure all users are included
+      users.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
       callback(users);
     }, (error) => handleFirestoreError(error, OperationType.LIST, path));
+  },
+
+  deleteUser: async (uid: string) => {
+    const path = `users/${uid}`;
+    try {
+      await deleteDoc(doc(db, path));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
   },
 
   getUserProfile: (uid: string, callback: (user: any) => void) => {

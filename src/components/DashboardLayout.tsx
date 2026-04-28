@@ -138,9 +138,9 @@ export default function DashboardLayout({ user, children, currentView, onViewCha
             >
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--accent)]/10 text-[var(--accent)] rounded-full text-[11px] font-bold transition-colors">
-              <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" />
-              Live Sync
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[11px] font-bold transition-colors">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Live v2.1 (Connected)
             </div>
           </div>
         </header>
